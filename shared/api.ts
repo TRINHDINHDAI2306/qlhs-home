@@ -197,14 +197,16 @@ export function createApi(repo: Repo) {
     const student = String(input.student ?? '').trim();
     if (!student) throw new Error('Thiếu tên học viên');
     repo.withLock(() => {
-      const list = repo.getPayments().filter(p => !(p.month === month && p.student === student));
+      const settleNote = `Trả nợ cùng lúc đóng ${month}`;
+      // Bỏ khoản của tháng này + các khoản trả nợ cũ đã ghi kèm khi đánh dấu tháng này (để Hoàn tác trả lại nợ cũ)
+      const list = repo.getPayments().filter(p => !(p.student === student && (p.month === month || p.note === settleNote)));
       if (input.paid) {
         const date = assertISODate(input.date);
         // Xoá luôn nợ các tháng trước: ghi đã đóng đủ phần còn thiếu của từng tháng
         if (input.includePrevious !== false) {
           for (const [k, v] of debtsBefore(month, repo.getSessions(), list)) {
             const [name, m] = k.split('|');
-            if (name === student) list.push({ month: m, student, amount: v, date, note: `Trả nợ cùng lúc đóng T${Number(month.slice(5))}` });
+            if (name === student) list.push({ month: m, student, amount: v, date, note: settleNote });
           }
         }
         list.push({ month, student, amount: money(input.amount), date, note: '' });

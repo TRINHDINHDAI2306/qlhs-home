@@ -9,9 +9,6 @@
 import { API_METHODS, createApi, type ApiMethod } from '../shared/api';
 import { ensureSheets, importLegacyStudents, readPin, sheetRepo } from './sheetRepo';
 
-const MAX_FAILS = 20;
-const LOCK_SECONDS = 600;
-
 export function doGet() {
   return HtmlService.createHtmlOutputFromFile('index')
     .setTitle('Sổ lớp học')
@@ -38,17 +35,11 @@ export function setup() {
   return msg;
 }
 
-/** Kiểm tra mã PIN; sai quá nhiều lần thì khoá tạm 10 phút (chống dò mã). */
+/** Kiểm tra khoá API (tab CaiDat, ô B1). Khoá dài ngẫu nhiên nên không cần khoá tạm chống dò. */
 function checkPin(pin: string) {
-  const cache = CacheService.getScriptCache();
-  const fails = Number(cache.get('pin_fail') || 0);
-  if (fails >= MAX_FAILS) throw new Error('PIN_KHOA: Nhập sai quá nhiều lần – thử lại sau 10 phút');
   const real = readPin();
   if (!real) throw new Error('PIN_CHUA_DAT: Chưa đặt khoá API (tab CaiDat, ô B1 trong Google Sheet)');
-  if (String(pin ?? '').trim() !== real) {
-    cache.put('pin_fail', String(fails + 1), LOCK_SECONDS);
-    throw new Error('PIN_SAI: Khoá API không đúng');
-  }
+  if (String(pin ?? '').trim() !== real) throw new Error('PIN_SAI: Khoá API không đúng');
 }
 
 /** Cổng RPC duy nhất: google.script.run.rpc(method, JSON.stringify(args), pin) */

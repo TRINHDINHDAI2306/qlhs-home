@@ -23,17 +23,31 @@ scripts/build-server.mjs   Đóng gói server thành dist/Code.js
 
 `npm run build` tạo thư mục `dist/` gồm `index.html` (toàn bộ React gộp 1 file), `Code.js` và `appsscript.json`.
 
-## Link app (đã triển khai)
+## Link app
 
-https://script.google.com/macros/s/AKfycbwX3Zt1P1ShB9JZRR78znQ96i7ChGynb6MBzpaPSM0qhCsoQFmW5sgiywQO0I0leYSKnw/exec
+- **Apps Script**: https://script.google.com/macros/s/AKfycbwX3Zt1P1ShB9JZRR78znQ96i7ChGynb6MBzpaPSM0qhCsoQFmW5sgiywQO0I0leYSKnw/exec
+- **Vercel**: xem trang dự án trên vercel.com (build từ repo này)
 
-Sau khi sửa code, chạy `npm run deploy` – build, đẩy code và cập nhật đúng link trên (link không đổi).
+## Khoá API (bảo vệ dữ liệu)
+
+Apps Script mở cho "Bất kỳ ai" để bản Vercel gọi được, nhưng mọi lệnh đều phải kèm **khoá API**:
+
+- Khoá nằm ở **ô B1 tab `CaiDat`** trong Google Sheet.
+- App tự gửi khoá (không cần nhập). Khoá được gắn lúc build từ biến `VITE_APP_KEY`:
+  - trên máy: file `.env.local` (không commit) – `VITE_APP_KEY=...`
+  - trên Vercel: Project → Settings → Environment Variables → `VITE_APP_KEY`
+- Build sẽ **báo lỗi** nếu thiếu `VITE_APP_KEY`.
+- Đổi khoá: sửa ô B1, cập nhật `VITE_APP_KEY` ở cả 2 nơi rồi build/deploy lại.
+- Ai có link app (Vercel hoặc Apps Script) đều dùng được app – đừng chia sẻ link.
+
+Sau khi sửa code: `npm run deploy` (Apps Script, link không đổi) và `git push` (Vercel tự build nếu đã nối repo) hoặc `npx vercel --prod`.
 
 ## Chạy thử trên máy
 
 ```bash
 npm install
-npm run dev          # mở http://localhost:5173 – chế độ xem thử với dữ liệu mẫu (lưu trong trình duyệt)
+npm run dev          # mở http://localhost:5173 – dùng DỮ LIỆU THẬT (cần .env.local có VITE_APP_KEY)
+VITE_DEMO=1 npm run dev   # xem thử với dữ liệu mẫu tên giả, không đụng Google Sheet
 ```
 
 ## Triển khai lên Google Apps Script
