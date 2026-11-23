@@ -26,7 +26,7 @@ scripts/build-server.mjs   Đóng gói server thành dist/Code.js
 ## Link app
 
 - **Apps Script**: https://script.google.com/macros/s/AKfycbwX3Zt1P1ShB9JZRR78znQ96i7ChGynb6MBzpaPSM0qhCsoQFmW5sgiywQO0I0leYSKnw/exec
-- **Vercel**: xem trang dự án trên vercel.com (build từ repo này)
+- **Vercel**: https://qlhs-home.vercel.app – cập nhật bằng `npm run deploy:web` (hoặc tự động khi `git push` nếu đã nối GitHub trong Vercel → Settings → Git)
 
 ## Khoá API (bảo vệ dữ liệu)
 
