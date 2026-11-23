@@ -9,7 +9,8 @@
     "build": "npm run typecheck && vite build && node scripts/build-server.mjs",
     "preview": "vite preview",
     "push": "npm run build && clasp push -f",
-    "deploy": "npm run push && clasp create-deployment -i AKfycbwX3Zt1P1ShB9JZRR78znQ96i7ChGynb6MBzpaPSM0qhCsoQFmW5sgiywQO0I0leYSKnw -d \"Cập nhật\""
+    "deploy": "npm run push && clasp create-deployment -i AKfycbwX3Zt1P1ShB9JZRR78znQ96i7ChGynb6MBzpaPSM0qhCsoQFmW5sgiywQO0I0leYSKnw -d \"Cập nhật\"",
+    "build:web": "tsc -p tsconfig.json && vite build"
   },
   "dependencies": {
     "react": "^19.3.1",

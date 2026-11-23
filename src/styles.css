@@ -503,3 +503,7 @@ tbody tr:hover td { background: #f8faff; }
 .link-box { width: 100%; font-size: 14px !important; color: var(--text-2); background: var(--surface-2) !important; }
 a.btn { text-decoration: none; }
 .modal-foot .btn.big { flex: 1; }
+
+img.logo { background: none; box-shadow: 0 4px 12px rgba(0, 40, 100, .25); border-radius: 12px; }
+
+.paid-extra { color: var(--green); font-weight: 600; }

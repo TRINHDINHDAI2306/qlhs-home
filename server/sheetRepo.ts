@@ -127,6 +127,12 @@ export function sheetRepo(): Repo {
   };
 }
 
+/** Mã PIN của app: tab CaiDat, ô B1 (bạn tự đổi trong Google Sheet). */
+export function readPin(): string {
+  const sh = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('CaiDat');
+  return sh ? String(sh.getRange('B1').getDisplayValue()).trim() : '';
+}
+
 /** Nhập danh sách học viên từ tab cũ (cột A = Tên, cột J = tiền 1 buổi theo nghìn đồng). */
 export function importLegacyStudents(): string {
   const ss = ensureSheets();

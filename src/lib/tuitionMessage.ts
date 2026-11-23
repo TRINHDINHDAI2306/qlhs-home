@@ -66,6 +66,7 @@ export function buildTuitionMessage(stat: StudentMonthStat, month: string, opt: 
       hasSessions ? `[HỌC PHÍ ${monthText.toUpperCase()}] ${name}` : `[HỌC PHÍ CÒN THIẾU] ${name}`,
       ...(hasSessions ? [`• ${breakdown}`] : []),
       ...(debt ? [`• Còn thiếu ${debtMonths}: ${vnd(debt)}`, `• Tổng: ${vnd(total)}`] : []),
+      ...(toStudent ? [`📣 Nhắc bố mẹ đóng tiền học giúp mình nhé!`] : []),
       `💳 STK ${account}`,
     ].join('\n');
   }
@@ -78,7 +79,7 @@ export function buildTuitionMessage(stat: StudentMonthStat, month: string, opt: 
         : []),
       ...(debt ? [`${hasSessions ? 'Cộng thêm' : `${toStudent ? name : `Bạn ${name}`} còn`} ${vnd(debt)} học phí ${debtMonths} chưa đóng, tổng cộng là ${vnd(total)}${toStudent ? '' : ' ạ'}.`] : []),
       '',
-      toStudent ? `Chuyển khoản giúp ${me} nhé:` : `${X} chuyển khoản giúp ${me} nhé:`,
+      toStudent ? `📣 ${name} nhắc bố mẹ đóng tiền học giúp mình nha 🙏` : `${X} chuyển khoản giúp ${me} nhé:`,
       `💳 ${account}`,
     ].join('\n');
   }
@@ -94,7 +95,7 @@ export function buildTuitionMessage(stat: StudentMonthStat, month: string, opt: 
     ...(debt ? [`📌 Học phí còn thiếu ${debtMonths}: ${vnd(debt)}`] : []),
     `👉 Tổng cần thanh toán: ${vnd(total)}`,
     '',
-    toStudent ? `${capitalize(name)} chuyển khoản giúp ${me} qua:` : `${X} vui lòng chuyển khoản giúp ${me} qua:`,
+    toStudent ? `📣 ${name} nhắc bố mẹ đóng tiền học giúp mình nhé!` : `${X} vui lòng chuyển khoản giúp ${me} qua:`,
     `💳 STK: ${account}`,
   ].join('\n');
 }

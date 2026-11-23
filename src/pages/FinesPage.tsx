@@ -91,7 +91,7 @@ export function FinesPage() {
               <Avatar name={b.name} />
               <span className="who">
                 <b>{b.name}</b>
-                <small>{b.owe > 0 ? <span className="owe">Còn nợ {money(b.owe)}</span> : b.fine > 0 ? 'Đã đóng đủ ✓' : 'Không có phạt'}</small>
+                <small>{b.owe > 0 ? <span className="owe">Còn nợ {money(b.owe)}</span> : b.owe < 0 ? <span className="paid-extra">Đã đóng đủ ✓ · dư {money(-b.owe)}</span> : b.fine > 0 ? 'Đã đóng đủ ✓' : 'Không có phạt'}</small>
               </span>
               <span className="actions">
                 <button className="btn small" onClick={() => open(b, 'Phạt')}>＋ Phạt</button>
