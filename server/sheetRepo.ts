@@ -8,10 +8,10 @@ const LEGACY_SHEET = 'Trang tính1';
 
 const SHEETS = {
   students: { name: 'HocVien', headers: ['Tên', 'Học phí/buổi', 'Đang học', 'Ghi chú'], formats: { 2: '#,##0' } },
-  sessions: { name: 'DiemDanh', headers: ['Ngày', 'Học viên', 'Số buổi', 'Học phí/buổi', 'Thành tiền', 'Ghi chú'], formats: { 1: 'dd/MM/yyyy', 4: '#,##0', 5: '#,##0' } },
-  fines: { name: 'Phat', headers: ['Ngày', 'Học viên', 'Loại', 'Số tiền', 'Ghi chú'], formats: { 1: 'dd/MM/yyyy', 4: '#,##0' } },
+  sessions: { name: 'DiemDanh', headers: ['Ngày', 'Học sinh', 'Số buổi', 'Học phí/buổi', 'Thành tiền', 'Ghi chú'], formats: { 1: 'dd/MM/yyyy', 4: '#,##0', 5: '#,##0' } },
+  fines: { name: 'Phat', headers: ['Ngày', 'Học sinh', 'Loại', 'Số tiền', 'Ghi chú'], formats: { 1: 'dd/MM/yyyy', 4: '#,##0' } },
   // Cột Tháng để dạng chữ ('@') để "2026-11" không bị Sheets đổi thành ngày
-  payments: { name: 'DaDong', headers: ['Tháng', 'Học viên', 'Số tiền', 'Ngày đóng', 'Ghi chú'], formats: { 1: '@', 3: '#,##0', 4: 'dd/MM/yyyy' } },
+  payments: { name: 'DaDong', headers: ['Tháng', 'Học sinh', 'Số tiền', 'Ngày đóng', 'Ghi chú'], formats: { 1: '@', 3: '#,##0', 4: 'dd/MM/yyyy' } },
 } as const;
 type SheetKey = keyof typeof SHEETS;
 
@@ -56,8 +56,13 @@ export function ensureSheets(ss = SpreadsheetApp.openById(SPREADSHEET_ID)) {
   return ss;
 }
 
-export function sheetRepo(): Repo {
-  const ss = ensureSheets();
+/** Mở Google Sheet 1 lần cho mỗi lần gọi (dùng chung cho kiểm tra khoá + đọc/ghi). */
+export function openSpreadsheet() {
+  return SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+
+export function sheetRepo(ssIn?: GoogleAppsScript.Spreadsheet.Spreadsheet): Repo {
+  const ss = ensureSheets(ssIn ?? openSpreadsheet());
   const sheet = (key: SheetKey) => ss.getSheetByName(SHEETS[key].name)!;
 
   const read = (key: SheetKey): unknown[][] => {
@@ -128,18 +133,18 @@ export function sheetRepo(): Repo {
 }
 
 /** Mã PIN của app: tab CaiDat, ô B1 (bạn tự đổi trong Google Sheet). */
-export function readPin(): string {
-  const sh = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('CaiDat');
+export function readPin(ss = openSpreadsheet()): string {
+  const sh = ss.getSheetByName('CaiDat');
   return sh ? String(sh.getRange('B1').getDisplayValue()).trim() : '';
 }
 
-/** Nhập danh sách học viên từ tab cũ (cột A = Tên, cột J = tiền 1 buổi theo nghìn đồng). */
+/** Nhập danh sách học sinh từ tab cũ (cột A = Tên, cột J = tiền 1 buổi theo nghìn đồng). */
 export function importLegacyStudents(): string {
   const ss = ensureSheets();
   const repo = sheetRepo();
   if (repo.getStudents().length) return 'Tab HocVien đã có dữ liệu – bỏ qua bước nhập.';
   const old = ss.getSheetByName(LEGACY_SHEET);
-  if (!old) return `Không thấy tab "${LEGACY_SHEET}" – hãy thêm học viên trong webapp.`;
+  if (!old) return `Không thấy tab "${LEGACY_SHEET}" – hãy thêm học sinh trong webapp.`;
   const students = old.getDataRange().getValues().slice(1)
     .filter(r => String(r[0]).trim())
     .map((r): Student => {
@@ -147,5 +152,5 @@ export function importLegacyStudents(): string {
       return { name: String(r[0]).trim(), fee: feeK > 0 ? feeK * 1000 : DEFAULT_FEE, active: true, note: '' };
     });
   repo.setStudents(students);
-  return `Đã nhập ${students.length} học viên từ "${LEGACY_SHEET}".`;
+  return `Đã nhập ${students.length} học sinh từ "${LEGACY_SHEET}".`;
 }

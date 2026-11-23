@@ -241,7 +241,7 @@ tbody tr:hover td { background: #f8faff; }
 .stat-main .owe { color: var(--danger); }
 .stat-amount { font-weight: 700; }
 
-/* ---------- Học viên ---------- */
+/* ---------- Học sinh ---------- */
 .student-list { list-style: none; margin: 0; padding: 0; }
 .student-list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .student-list li:last-child { border-bottom: 0; }
@@ -400,7 +400,7 @@ tbody tr:hover td { background: #f8faff; }
 .dl-mid { flex: 1; color: var(--text-2); font-size: 14px; }
 .dl-amt { font-weight: 700; }
 
-/* Học viên */
+/* Học sinh */
 .row-btn { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; border: 0; background: none; padding: 0; cursor: pointer; text-align: left; }
 .switch-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
 .switch-label { font-size: 11px; color: var(--text-3); font-weight: 600; }
@@ -522,3 +522,16 @@ img.logo { background: none; box-shadow: 0 4px 12px rgba(0, 40, 100, .25); borde
 @keyframes spin { to { transform: rotate(360deg); } }
 .sync-chip { flex: none; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 99px; background: rgba(255, 255, 255, .22); color: #fff; white-space: nowrap; }
 .sync-chip.err { background: #fee2e2; color: var(--danger); }
+
+/* ---------- Form đóng tiền ---------- */
+.due-box { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); }
+.due-box span { color: var(--text-3); font-size: 13px; font-weight: 600; }
+.due-box b { font-size: 22px; }
+.due-box small { flex-basis: 100%; color: var(--text-2); font-size: 13px; }
+.pay-preview { padding: 10px 14px; border-radius: 12px; font-weight: 600; font-size: 14.5px; }
+.pay-preview.ok { background: var(--green-soft); color: var(--green); }
+.pay-preview.short { background: var(--amber-soft); color: #b45309; }
+.pay-preview.over { background: #e6f7f0; color: #0f766e; }
+.pay-history { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; font-size: 12.5px; color: var(--text-2); }
+.pay-history .pill { background: var(--green-soft); color: var(--green); }
+.stat-main .credit { color: #0f766e; font-weight: 600; }

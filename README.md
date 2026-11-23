@@ -15,7 +15,7 @@ server/          Backend Apps Script
   sheetRepo.ts   Đọc/ghi Google Sheet (SPREADSHEET_ID ở đầu file)
 src/             Frontend React
   config.ts      ⚙️ Số tài khoản ngân hàng dùng trong tin nhắn báo học phí
-  pages/         Điểm danh · Báo cáo · Học viên · Phạt
+  pages/         Điểm danh · Báo cáo · Học sinh · Phạt
   components/    Biểu đồ cột, hộp soạn tin báo học phí
   lib/           Gọi API, định dạng tiền, mẫu tin nhắn
 scripts/build-server.mjs   Đóng gói server thành dist/Code.js
@@ -63,7 +63,7 @@ VITE_DEMO=1 npm run dev   # xem thử với dữ liệu mẫu tên giả, không
    npm run push       # build + đẩy code lên Apps Script
    ```
 5. Trong trình soạn Apps Script: chọn hàm **`setup`** → **Chạy** → cấp quyền.
-   Hàm này tạo các tab `HocVien`, `DiemDanh`, `Phat` và nhập danh sách học viên từ tab cũ `Trang tính1`. Tab cũ được giữ nguyên.
+   Hàm này tạo các tab `HocVien`, `DiemDanh`, `Phat` và nhập danh sách học sinh từ tab cũ `Trang tính1`. Tab cũ được giữ nguyên.
 6. **Triển khai → Tùy chọn triển khai mới → Ứng dụng web**
    - Thực thi với tư cách: **Tôi**
    - Người có quyền truy cập: **Chỉ mình tôi**
@@ -85,29 +85,29 @@ Lần sau khi sửa code: chạy `npm run push`, rồi vào **Triển khai → Q
 | Tab | Cột |
 |---|---|
 | `HocVien` | Tên · Học phí/buổi · Đang học · Ghi chú |
-| `DiemDanh` | Ngày · Học viên · Số buổi · Học phí/buổi · Thành tiền (`=C×D`) · Ghi chú |
-| `Phat` | Ngày · Học viên · Loại (`Phạt` / `Đóng phạt`) · Số tiền · Ghi chú |
-| `DaDong` | Tháng (`yyyy-MM`) · Học viên · Số tiền · Ngày đóng · Ghi chú – đánh dấu đã đóng học phí theo tháng |
+| `DiemDanh` | Ngày · Học sinh · Số buổi · Học phí/buổi · Thành tiền (`=C×D`) · Ghi chú |
+| `Phat` | Ngày · Học sinh · Loại (`Phạt` / `Đóng phạt`) · Số tiền · Ghi chú |
+| `DaDong` | Tháng (`yyyy-MM`) · Học sinh · Số tiền · Ngày đóng · Ghi chú – đánh dấu đã đóng học phí theo tháng |
 
 ## Quy tắc tính
 
-- Mỗi học viên **mỗi ngày tối đa 1 buổi** (1 dấu x).
+- Mỗi học sinh **mỗi ngày tối đa 1 buổi** (1 dấu x).
 - **Thành tiền** = Số buổi × Học phí/buổi.
 - Học phí/buổi được lưu vào từng dòng điểm danh, nên đổi học phí không làm thay đổi các buổi đã lưu.
-- **Học phí 1 ngày** = tổng thành tiền của mọi học viên trong ngày đó.
+- **Học phí 1 ngày** = tổng thành tiền của mọi học sinh trong ngày đó.
 - **Tiền phạt quản lý riêng** ở tab Phạt: Còn nợ = Tổng phạt − Tổng đã đóng. Phạt không tính vào học phí và không gửi kèm tin nhắn cho phụ huynh.
 - **Điểm danh tự lưu** khoảng 1 giây sau mỗi lần chạm.
-- **Học viên miễn phí**: đặt học phí/buổi = 0 (nút 🎁 Miễn phí). Vẫn điểm danh bình thường, không tính tiền, không cần đánh dấu đã đóng.
-- **Đã đóng học phí**: ở tab Học phí, bấm **✓ Đã đóng** cho từng học viên. Đầu trang hiện Đã thu / Còn phải thu.
+- **Học sinh miễn phí**: đặt học phí/buổi = 0 (nút 🎁 Miễn phí). Vẫn điểm danh bình thường, không tính tiền, không cần đánh dấu đã đóng.
+- **Đã đóng học phí**: ở tab Học phí, bấm **✓ Đã đóng** cho từng học sinh. Đầu trang hiện Đã thu / Còn phải thu.
 - **Nợ cũ**: học phí tháng trước chưa đóng (hoặc đóng thiếu) tự cộng dồn sang tháng sau (📌 Nợ T11…) và được ghi vào tin nhắn phụ huynh. Bấm **✓ Đã đóng** sẽ **xoá sạch nợ** – cả tháng này lẫn các tháng trước.
 - **Phạt**: bấm **✓ Đã đóng** ở tab Phạt là ghi đóng đủ số còn nợ → nợ phạt về 0.
 - Dòng điểm danh có Ghi chú bắt đầu bằng **"Dữ liệu cũ"** là số buổi tổng nhập từ bảng tay (không rõ ngày): được tính vào học phí tháng nhưng không hiện trên lịch.
 
-## Báo học phí cho từng học viên
+## Báo học phí cho từng học sinh
 
-Vào tab **Học phí** và bấm **💬 Nhắn** cạnh tên học viên. Trong hộp soạn tin, bạn chọn:
+Vào tab **Học phí** và bấm **💬 Nhắn** cạnh tên học sinh. Trong hộp soạn tin, bạn chọn:
 - **Gửi cho**: Anh/Chị (mặc định) / Anh / Chị / Cô / Chú / Phụ huynh / 🎓 Học sinh (nhắn thẳng cho học sinh, gọi tên, xưng "mình")
 - **Kiểu tin**: Lịch sự / Thân mật / Ngắn gọn
 
-Bạn có thể sửa nội dung trước khi bấm **Sao chép**. App ghi nhớ lựa chọn riêng cho từng học viên.
+Bạn có thể sửa nội dung trước khi bấm **Sao chép**. App ghi nhớ lựa chọn riêng cho từng học sinh.
 Số tài khoản được sửa trong `src/config.ts`.

@@ -60,48 +60,112 @@ async function remote(method: ApiMethod, args: unknown[]): Promise<unknown> {
   return out.data;
 }
 
-/* ---------- Trạng thái đồng bộ (cho chỉ báo "Đang lưu…") ---------- */
-export interface SyncState { pending: number; error: string; loadedAt: number }
-let sync: SyncState = { pending: 0, error: '', loadedAt: 0 };
+/* ---------- Trạng thái đồng bộ (cho chỉ báo "Đang lưu…" / "Đang cập nhật…") ---------- */
+export interface SyncState { pending: number; refreshing: boolean; error: string; loadedAt: number }
+let sync: SyncState = { pending: 0, refreshing: false, error: '', loadedAt: 0 };
 const syncListeners = new Set<(s: SyncState) => void>();
 const reloadListeners = new Set<() => void>();
 const setSync = (patch: Partial<SyncState>) => { sync = { ...sync, ...patch }; syncListeners.forEach(l => l(sync)); };
 export const getSync = () => sync;
 export function onSync(l: (s: SyncState) => void) { syncListeners.add(l); return () => { syncListeners.delete(l); }; }
-/** Gọi khi dữ liệu được tải lại từ Sheet (để các trang vẽ lại) */
+/** Gọi khi dữ liệu trên máy được thay bằng dữ liệu mới từ Sheet (để các trang vẽ lại) */
 export function onReload(l: () => void) { reloadListeners.add(l); return () => { reloadListeners.delete(l); }; }
+
+/* ---------- Bộ nhớ đệm trên máy: mở app tức thì bằng dữ liệu lần trước ---------- */
+const CACHE_KEY = 'solop-cache-v1';
+function readCache(): AllData | null {
+  try {
+    const d = JSON.parse(localStorage.getItem(CACHE_KEY) ?? 'null') as AllData | null;
+    return d && Array.isArray(d.students) && Array.isArray(d.sessions) ? { ...d, fines: d.fines ?? [], payments: d.payments ?? [] } : null;
+  } catch { return null; }
+}
+function writeCache(json: string) { try { localStorage.setItem(CACHE_KEY, json); } catch { /* đầy bộ nhớ – bỏ qua */ } }
 
 /* ---------- Dữ liệu trong bộ nhớ ---------- */
 let local: ServerApi | null = null;
+let localJson = '';            // bản JSON của dữ liệu đã xác nhận từ Sheet gần nhất
+let fresh: Promise<void> | null = null; // xong khi đã có dữ liệu MỚI NHẤT từ Sheet
 let queue: Promise<void> = Promise.resolve();
+let writeSeq = 0;
 let needResync = false;
+let reconcileTimer: number | undefined;
 
-/** Tải toàn bộ dữ liệu 1 lần (khi mở app / tải lại). */
-export async function loadAll(): Promise<void> {
-  if (MODE === 'demo') {
-    local ??= createApi(localRepo());
-  } else {
-    try {
-      const data = (await remote('getAllData', [])) as AllData;
-      local = createApi(memoryRepo(data));
-    } catch (e) {
-      throw cleanError(e);
-    }
-  }
+/**
+ * Thay dữ liệu trên máy bằng dữ liệu từ Sheet (Sheet luôn là bản chuẩn).
+ * So với dữ liệu ĐANG HIỆN trên máy (gồm cả thay đổi vừa áp dụng) → true nếu khác.
+ */
+function adopt(data: AllData): boolean {
+  const json = JSON.stringify(data);
+  const current = local ? JSON.stringify(local.getAllData()) : '';
+  const changed = json !== current;
+  if (changed) local = createApi(memoryRepo(data));
+  if (json !== localJson) { localJson = json; writeCache(json); }
   setSync({ loadedAt: Date.now() });
+  return changed;
 }
 
-/** Tải lại từ Sheet rồi báo các trang vẽ lại (bỏ qua nếu còn thay đổi chưa gửi xong). */
+async function fetchAll(): Promise<AllData> {
+  try { return (await remote('getAllData', [])) as AllData; }
+  catch (e) { throw cleanError(e); }
+}
+
+/**
+ * Mở app. Có dữ liệu lần trước → hiện ngay, đồng thời tải bản mới nhất ở nền
+ * (có khác thì tự cập nhật màn hình). Chưa có → chờ tải xong.
+ */
+export async function loadAll(): Promise<void> {
+  if (MODE === 'demo') { local ??= createApi(localRepo()); setSync({ loadedAt: Date.now() }); return; }
+  const cached = local ? null : readCache();
+  const job = (async () => {
+    setSync({ refreshing: true });
+    try {
+      const changed = adopt(await fetchAll());
+      setSync({ error: '' });
+      if (changed && cached) reloadListeners.forEach(l => l());
+    } finally {
+      setSync({ refreshing: false });
+    }
+  })();
+  fresh = job;
+  if (cached) {
+    adopt(cached); // giống hệt bản mới thì không vẽ lại màn hình
+    job.catch(e => setSync({ error: `Đang dùng dữ liệu lưu trên máy – ${e instanceof Error ? e.message : e}` }));
+    return;
+  }
+  await job;
+}
+
+/** Đối chiếu với Sheet (sau khi lưu / khi quay lại app). Bỏ qua nếu đang có thay đổi chưa gửi xong. */
+async function reconcile(force = false): Promise<boolean> {
+  if (MODE === 'demo' || sync.pending > 0) return false;
+  const seq = writeSeq;
+  setSync({ refreshing: true });
+  try {
+    const data = await fetchAll();
+    if (seq !== writeSeq || sync.pending > 0) return false; // có thao tác mới trong lúc tải → để lần sau
+    const changed = adopt(data);
+    if (changed || force) reloadListeners.forEach(l => l());
+    setSync({ error: '' });
+    return true;
+  } finally {
+    setSync({ refreshing: false });
+  }
+}
+
+/** Tải lại thủ công / khi quay lại app. */
 export async function reloadAll(): Promise<boolean> {
-  if (sync.pending > 0) return false;
-  await loadAll();
-  setSync({ error: '' });
-  reloadListeners.forEach(l => l());
-  return true;
+  return reconcile(false);
 }
 
 export async function call<K extends ApiMethod>(method: K, ...args: Parameters<ServerApi[K]>): Promise<ReturnType<ServerApi[K]>> {
   if (!local) await loadAll();
+  const isWrite = !READ_METHODS.has(method) && MODE !== 'demo';
+  if (isWrite) {
+    // Chính xác: chỉ ghi khi đã có dữ liệu mới nhất từ Sheet
+    try { await fresh; } catch { throw new Error('Chưa tải được dữ liệu mới nhất từ Google Sheet – kiểm tra mạng rồi thử lại'); }
+    writeSeq++;
+    window.clearTimeout(reconcileTimer);
+  }
   const fn = local![method] as (...a: unknown[]) => ReturnType<ServerApi[K]>;
   let result: ReturnType<ServerApi[K]>;
   try {
@@ -109,7 +173,7 @@ export async function call<K extends ApiMethod>(method: K, ...args: Parameters<S
   } catch (e) {
     throw cleanError(e);
   }
-  if (!READ_METHODS.has(method) && MODE !== 'demo') {
+  if (isWrite) {
     setSync({ pending: sync.pending + 1 });
     queue = queue
       .then(() => remote(method, args))
@@ -117,15 +181,20 @@ export async function call<K extends ApiMethod>(method: K, ...args: Parameters<S
         () => setSync({ pending: sync.pending - 1 }),
         err => {
           needResync = true;
-          setSync({ pending: sync.pending - 1, error: cleanError(err).message });
+          setSync({ pending: sync.pending - 1, error: `Lỗi lưu – đã tải lại dữ liệu từ Sheet (${cleanError(err).message})` });
         },
       )
-      .then(async () => {
-        // Có lỗi và đã gửi hết hàng đợi → tải lại dữ liệu chuẩn từ Sheet
-        if (needResync && sync.pending === 0) {
+      .then(() => {
+        if (sync.pending > 0) return;
+        if (needResync) {
+          // Lỗi → lấy ngay dữ liệu chuẩn từ Sheet
           needResync = false;
-          try { await loadAll(); reloadListeners.forEach(l => l()); } catch { /* giữ thông báo lỗi */ }
+          const msg = sync.error;
+          return reconcile(true).then(() => setSync({ error: msg }), () => setSync({ error: msg }));
         }
+        // Gửi xong cả loạt thành công → xoá thông báo lỗi cũ, đối chiếu lặng lẽ với Sheet sau 1,5 giây
+        if (sync.error.startsWith('Lỗi lưu')) setSync({ error: '' });
+        reconcileTimer = window.setTimeout(() => { void reconcile(false).catch(() => {}); }, 1500);
       });
   }
   return result;

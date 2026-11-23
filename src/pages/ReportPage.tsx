@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { DOW_FULL, dayOfWeek, fmtDM, fmtDMY, fmtMonth, shiftMonth, todayISO } from '../../shared/date';
+import { DOW_FULL, dayOfWeek, fmtDM, fmtDMY, fmtMonth, shiftMonth } from '../../shared/date';
 import type { MonthOverview, MonthReport, StudentMonthStat } from '../../shared/types';
 import { Avatar } from '../components/Avatar';
 import { ColumnChart, type ColumnDatum } from '../components/ColumnChart';
 import { TuitionDialog } from '../components/TuitionDialog';
+import { PaySheet } from '../components/PaySheet';
 import { call } from '../lib/api';
 import { money } from '../lib/format';
 import { dateList, feeBreakdown } from '../lib/tuitionMessage';
@@ -20,12 +21,13 @@ type Filter = 'all' | 'unpaid' | 'paid';
 type PayState = 'free' | 'paid' | 'partial' | 'unpaid';
 
 /** Tổng còn phải đóng = phần thiếu tháng này + nợ các tháng trước */
-const owed = (r: StudentMonthStat) => Math.max(0, r.amount - r.paid) + r.prevDebt;
+/** Còn phải đóng (gồm nợ cũ, đã trừ tiền dư và số đã đóng) */
+const owed = (r: StudentMonthStat) => Math.max(0, r.balance);
 const monthsShort = (ms: string[]) => ms.map(m => `T${Number(m.slice(5))}`).join(', ');
 
 function payState(r: StudentMonthStat): PayState {
-  if ((r.free || r.amount === 0) && r.prevDebt === 0) return 'free';
-  if (owed(r) === 0) return 'paid';
+  if (r.free) return 'free';
+  if (r.balance <= 0) return 'paid';
   if (r.paid > 0) return 'partial';
   return 'unpaid';
 }
@@ -49,16 +51,25 @@ export function ReportPage({ month, onMonthChange }: Props) {
     return () => { alive = false; };
   }, [month, run]);
 
-  const markPaid = async (r: StudentMonthStat, paid: boolean) => {
-    const total = owed(r);
-    if (!paid && !confirm(`Bỏ đánh dấu "đã đóng" tháng này của ${r.name}?`)) return;
-    if (paid && r.prevDebt > 0 && !confirm(`${r.name} đóng tổng ${money(total)} (gồm nợ ${monthsShort(r.prevDebtMonths)}: ${money(r.prevDebt)}).\nXác nhận đã nhận đủ và xoá nợ?`)) return;
-    setBusyName(r.name);
-    const res = await run(call('setPaid', { month, student: r.name, paid, amount: r.amount, date: todayISO(), includePrevious: true }));
-    setBusyName(null);
-    if (!res) return;
+  const [paying, setPaying] = useState<StudentMonthStat | null>(null);
+
+  const pay = async (r: StudentMonthStat, p: { amount: number; date: string; note: string }) => {
+    const res = await run(call('addPayment', { month, student: r.name, amount: p.amount, date: p.date, note: p.note }));
+    if (!res) return false;
     setReport(res);
-    toast(paid ? `✅ ${r.name} đã đóng ${money(total)} – đã xoá nợ` : `Đã bỏ đánh dấu ${r.name}`);
+    const after = res.students.find(s => s.name === r.name);
+    const bal = after ? after.balance : 0;
+    toast(bal > 0 ? `${r.name} đã đóng ${money(p.amount)} · còn thiếu ${money(bal)}` : bal < 0 ? `${r.name} đã đóng ${money(p.amount)} · dư ${money(-bal)}` : `✅ ${r.name} đã đóng đủ`);
+    return true;
+  };
+
+  const undoLast = async (r: StudentMonthStat) => {
+    const last = r.payments[r.payments.length - 1];
+    if (!last || !confirm(`Hoàn tác lần đóng ${money(last.amount)} ngày ${fmtDM(last.date)} của ${r.name}?`)) return;
+    setBusyName(r.name);
+    const res = await run(call('deletePayment', last.id, { month, student: r.name, amount: last.amount, date: last.date, note: last.note }));
+    setBusyName(null);
+    if (res) { setReport(res); toast(`Đã hoàn tác lần đóng của ${r.name}`); }
   };
 
   const copyAll = async () => {
@@ -90,7 +101,7 @@ export function ReportPage({ month, onMonthChange }: Props) {
   const chartData: ColumnDatum[] = !report ? [] : mode === 'day'
     ? report.days.map(d => ({
         key: d.date, label: fmtDM(d.date), value: d.amount,
-        tooltip: <><b>{DOW_FULL[dayOfWeek(d.date)]}, {fmtDMY(d.date)}</b><br />{money(d.amount)}<br />{d.students} học viên</>,
+        tooltip: <><b>{DOW_FULL[dayOfWeek(d.date)]}, {fmtDMY(d.date)}</b><br />{money(d.amount)}<br />{d.students} học sinh</>,
       }))
     : overview.slice(-12).map(o => ({
         key: o.month, label: `T${Number(o.month.slice(5))}/${o.month.slice(2, 4)}`, value: o.amount, active: o.month === month,
@@ -104,7 +115,7 @@ export function ReportPage({ month, onMonthChange }: Props) {
           <button className="btn icon round" onClick={() => onMonthChange(shiftMonth(month, -1))} aria-label="Tháng trước">‹</button>
           <div className="week-title">
             <b>{fmtMonth(month)}</b>
-            <small>{t ? `${t.sessions} buổi · ${t.learners} học viên` : 'Đang tải…'}</small>
+            <small>{t ? `${t.sessions} buổi · ${t.learners} học sinh` : 'Đang tải…'}</small>
           </div>
           <button className="btn icon round" onClick={() => onMonthChange(shiftMonth(month, 1))} aria-label="Tháng sau">›</button>
         </div>
@@ -124,8 +135,8 @@ export function ReportPage({ month, onMonthChange }: Props) {
       <div className="card">
         <div className="card-head">
           <div>
-            <h2>Học phí từng học viên</h2>
-            <p className="sub">Bấm <b>✓ Đã đóng</b> khi nhận tiền · <b>💬</b> để nhắn phụ huynh</p>
+            <h2>Học phí từng học sinh</h2>
+            <p className="sub">Bấm <b>💵 Đóng tiền</b> để nhập số tiền nhận được · <b>💬</b> để nhắn phụ huynh</p>
           </div>
           <button className="btn small" onClick={() => void copyAll()} disabled={!report}>📋 Copy</button>
         </div>
@@ -155,25 +166,28 @@ export function ReportPage({ month, onMonthChange }: Props) {
                     <small>{st === 'free' ? `${r.sessions} buổi · học miễn phí` : r.sessions ? feeBreakdown(r) : 'Tháng này chưa học buổi nào'}</small>
                     {r.sessions > 0 && <small className="dates">📅 {dateList(r).replace(' buổi đã ghi sổ', ' buổi ghi sổ (trước đây)')}</small>}
                     {r.prevDebt > 0 && <small className="debt">📌 Nợ {monthsShort(r.prevDebtMonths)}: {money(r.prevDebt)}</small>}
+                    {r.prevDebt < 0 && <small className="credit">💚 Dư từ trước: {money(-r.prevDebt)}</small>}
                   </div>
                   <div className="stat-amount num">{st === 'free' ? <span className="pill free">Miễn phí</span> : money(r.amount)}</div>
                 </div>
                 {st !== 'free' && (
                   <div className="pay-actions">
+                    {r.payments.length > 0 && (
+                      <span className="pay-history">
+                        {r.payments.map(p => <span key={p.id} className="pill">✅ {money(p.amount)} · {fmtDM(p.date)}</span>)}
+                        <button className="btn small ghost undo-btn" onClick={() => void undoLast(r)} disabled={busyName === r.name}>↺ Hoàn tác</button>
+                      </span>
+                    )}
                     {st === 'paid' ? (
-                      <>
-                        <span className="paid-chip">✅ Đã đóng{r.paidDate ? ` ${fmtDM(r.paidDate)}` : ''}</span>
-                        <button className="btn small ghost undo-btn" onClick={() => void markPaid(r, false)} disabled={busyName === r.name}>↺ Hoàn tác</button>
-                      </>
+                      <span className="paid-chip">{r.balance < 0 ? `💚 Đủ · dư ${money(-r.balance)}` : '✅ Đã đóng đủ'}</span>
                     ) : (
                       <>
-                        {st === 'partial' && <span className="partial-note">Đã đóng {money(r.paid)} · thiếu {money(r.amount - r.paid)}</span>}
+                        {st === 'partial' && <span className="partial-note">Còn thiếu {money(owed(r))}</span>}
                         <button className="btn small msg-btn" onClick={() => setNotify(r)}>💬 Nhắn</button>
-                        <button className="btn small green" onClick={() => void markPaid(r, true)} disabled={busyName === r.name}>
-                          {busyName === r.name ? '…' : r.prevDebt > 0 ? `✓ Đã đóng ${money(owed(r))}` : '✓ Đã đóng'}
-                        </button>
+                        <button className="btn small green" onClick={() => setPaying(r)}>💵 Đóng tiền</button>
                       </>
                     )}
+                    {st === 'paid' && <button className="btn small" onClick={() => setPaying(r)}>💵 Đóng thêm</button>}
                   </div>
                 )}
               </li>
@@ -209,6 +223,21 @@ export function ReportPage({ month, onMonthChange }: Props) {
       </div>
 
       {notify && report && <TuitionDialog stat={notify} month={report.month} onClose={() => setNotify(null)} />}
+      {paying && (
+        <PaySheet
+          title={`Đóng học phí · ${paying.name}`}
+          due={owed(paying)}
+          dueDetail={<>
+            {fmtMonth(month)}: {money(paying.amount)}
+            {paying.prevDebt > 0 && <> + nợ {monthsShort(paying.prevDebtMonths)}: {money(paying.prevDebt)}</>}
+            {paying.prevDebt < 0 && <> − dư từ trước: {money(-paying.prevDebt)}</>}
+            {paying.paid > 0 && <> − đã đóng: {money(paying.paid)}</>}
+          </>}
+          overLabel="được trừ vào tháng sau"
+          onClose={() => setPaying(null)}
+          onSubmit={p => pay(paying, p)}
+        />
+      )}
     </section>
   );
 }

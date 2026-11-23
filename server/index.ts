@@ -7,7 +7,7 @@
  *  - POST /exec  body: {"method","args","pin"}       – khi mở app từ Vercel
  */
 import { API_METHODS, createApi, type ApiMethod } from '../shared/api';
-import { ensureSheets, importLegacyStudents, readPin, sheetRepo } from './sheetRepo';
+import { ensureSheets, importLegacyStudents, openSpreadsheet, readPin, sheetRepo } from './sheetRepo';
 
 export function doGet() {
   return HtmlService.createHtmlOutputFromFile('index')
@@ -27,7 +27,7 @@ export function doPost(e: GoogleAppsScript.Events.DoPost) {
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
 }
 
-/** Chạy 1 lần trong trình soạn Apps Script: tạo tab + nhập học viên từ bảng cũ. */
+/** Chạy 1 lần trong trình soạn Apps Script: tạo tab + nhập học sinh từ bảng cũ. */
 export function setup() {
   ensureSheets();
   const msg = importLegacyStudents();
@@ -36,17 +36,18 @@ export function setup() {
 }
 
 /** Kiểm tra khoá API (tab CaiDat, ô B1). Khoá dài ngẫu nhiên nên không cần khoá tạm chống dò. */
-function checkPin(pin: string) {
-  const real = readPin();
+function checkPin(pin: string, ss: GoogleAppsScript.Spreadsheet.Spreadsheet) {
+  const real = readPin(ss);
   if (!real) throw new Error('PIN_CHUA_DAT: Chưa đặt khoá API (tab CaiDat, ô B1 trong Google Sheet)');
   if (String(pin ?? '').trim() !== real) throw new Error('PIN_SAI: Khoá API không đúng');
 }
 
 /** Cổng RPC duy nhất: google.script.run.rpc(method, JSON.stringify(args), pin) */
 export function rpc(method: string, argsJson: string, pin: string): string {
-  checkPin(pin);
+  const ss = openSpreadsheet(); // mở 1 lần, dùng chung
+  checkPin(pin, ss);
   if (!(API_METHODS as string[]).includes(method)) throw new Error('Phương thức không hợp lệ: ' + method);
-  const api = createApi(sheetRepo());
+  const api = createApi(sheetRepo(ss));
   const fn = api[method as ApiMethod] as (...args: unknown[]) => unknown;
   const args = JSON.parse(argsJson || '[]') as unknown[];
   return JSON.stringify(fn(...args));

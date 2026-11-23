@@ -3,14 +3,14 @@
  * lẫn trình duyệt (Repo = localStorage, chế độ xem thử).
  *
  * Quy tắc tính (giống bảng tay cũ):
- *   Mỗi học viên mỗi ngày tối đa 1 buổi (đánh 1 dấu x)
+ *   Mỗi học sinh mỗi ngày tối đa 1 buổi (đánh 1 dấu x)
  *   Thành tiền       = Số buổi × Học phí/buổi
- *   Học phí 1 ngày   = Σ thành tiền mọi học viên trong ngày
+ *   Học phí 1 ngày   = Σ thành tiền mọi học sinh trong ngày
  *   Tiền phạt quản lý riêng (tab Phat), không tính vào học phí
  */
 import { addDays, assertISODate, mondayOf } from './date';
 import type {
-  AllData, AttendanceInput, Fine, FineRow, FinesData, MonthOverview, MonthReport, PaymentInput, PaymentRow, Repo,
+  AllData, AttendanceInput, Fine, FineRow, FinesData, MonthOverview, MonthReport, PaymentRow, Repo,
   SessionRow, Student, StudentInput, StudentMonthStat, DayStat, WeekData,
 } from './types';
 
@@ -25,22 +25,37 @@ export const isLegacy = (e: SessionRow): boolean => e.note.trim().startsWith(LEG
 
 const byName = (a: string, b: string) => a.localeCompare(b, 'vi');
 
-/** Học phí còn thiếu theo từng tháng trước `beforeMonth`: key "tên|yyyy-MM" → số tiền còn thiếu (> 0). */
-function debtsBefore(beforeMonth: string, sessions: SessionRow[], payments: PaymentRow[]): Map<string, number> {
-  const due = new Map<string, number>();
+/**
+ * Số dư học phí của từng học sinh TRƯỚC tháng `beforeMonth`.
+ * Tiền đã đóng được trừ vào tháng nợ cũ nhất trước (FIFO); thừa thì thành tiền dư (số âm).
+ * Trả về: tên → { prev: >0 nợ / <0 dư, months: các tháng còn nợ }
+ */
+function balancesBefore(beforeMonth: string, sessions: SessionRow[], payments: PaymentRow[]) {
+  const dues = new Map<string, Map<string, number>>();
   for (const e of sessions) {
     const m = e.date.slice(0, 7);
     if (m >= beforeMonth) continue;
-    const k = `${e.student}|${m}`;
-    due.set(k, (due.get(k) ?? 0) + e.count * e.fee);
+    const byMonth = dues.get(e.student) ?? new Map<string, number>();
+    byMonth.set(m, (byMonth.get(m) ?? 0) + e.count * e.fee);
+    dues.set(e.student, byMonth);
   }
-  for (const p of payments) {
-    if (p.month >= beforeMonth) continue;
-    const k = `${p.student}|${p.month}`;
-    due.set(k, (due.get(k) ?? 0) - p.amount);
+  const paid = new Map<string, number>();
+  for (const p of payments) if (p.month < beforeMonth) paid.set(p.student, (paid.get(p.student) ?? 0) + p.amount);
+
+  const out = new Map<string, { prev: number; months: string[] }>();
+  for (const name of new Set([...dues.keys(), ...paid.keys()])) {
+    let pool = paid.get(name) ?? 0;
+    let remaining = 0;
+    const months: string[] = [];
+    for (const [m, due] of [...(dues.get(name) ?? new Map<string, number>())].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+      const use = Math.min(pool, due);
+      pool -= use;
+      if (due - use > 0) { remaining += due - use; months.push(m); }
+    }
+    const prev = remaining - pool; // còn tiền thừa (pool) thì remaining = 0 → prev âm = tiền dư
+    if (prev !== 0) out.set(name, { prev, months });
   }
-  for (const [k, v] of due) if (v <= 0) due.delete(k);
-  return due;
+  return out;
 }
 const money = (v: unknown) => Math.max(0, Math.round(Number(v) || 0));
 
@@ -51,13 +66,13 @@ export function createApi(repo: Repo) {
 
   function saveStudent(input: StudentInput): Student[] {
     const name = String(input.name ?? '').trim();
-    if (!name) throw new Error('Tên học viên không được để trống');
+    if (!name) throw new Error('Tên học sinh không được để trống');
     const original = input.originalName ? String(input.originalName).trim() : null;
 
     return repo.withLock(() => {
       const list = repo.getStudents();
       const idx = original ? list.findIndex(s => s.name === original) : -1;
-      if (original && idx === -1) throw new Error(`Không tìm thấy học viên "${original}"`);
+      if (original && idx === -1) throw new Error(`Không tìm thấy học sinh "${original}"`);
       if (list.some((s, i) => s.name === name && i !== idx)) throw new Error(`Tên "${name}" đã được dùng`);
 
       const row: Student = { name, fee: money(input.fee), active: input.active !== false, note: String(input.note ?? '').trim() };
@@ -125,7 +140,7 @@ export function createApi(repo: Repo) {
     const stat = (name: string): StudentMonthStat => {
       let s = stats.get(name);
       if (!s) {
-        s = { name, free: feeOf.get(name) === 0, paid: 0, paidDate: null, prevDebt: 0, prevDebtMonths: [], items: [], days: 0, sessions: 0, amount: 0 };
+        s = { name, free: feeOf.get(name) === 0, paid: 0, payments: [], paidDate: null, prevDebt: 0, prevDebtMonths: [], balance: 0, items: [], days: 0, sessions: 0, amount: 0 };
         stats.set(name, s);
       }
       return s;
@@ -150,27 +165,27 @@ export function createApi(repo: Repo) {
       days.set(e.date, d);
     }
 
-    for (const [k, v] of debtsBefore(month, allSessions, allPayments)) {
-      const [name, m] = k.split('|');
+    for (const [name, b] of balancesBefore(month, allSessions, allPayments)) {
       const s = stat(name);
-      s.prevDebt += v;
-      s.prevDebtMonths.push(m);
+      s.prevDebt = b.prev;
+      s.prevDebtMonths = b.months;
     }
 
-    for (const p of allPayments) {
-      if (p.month !== month) continue;
+    allPayments.forEach((p, id) => {
+      if (p.month !== month) return;
       const s = stat(p.student);
       s.paid += p.amount;
+      s.payments.push({ id, amount: p.amount, date: p.date, note: p.note });
       if (!s.paidDate || p.date > s.paidDate) s.paidDate = p.date;
-    }
+    });
 
     stats.forEach(s => {
       s.items.sort((a, b) => (a.date < b.date ? -1 : 1));
-      s.prevDebtMonths.sort();
-      if (s.amount > 0 || s.prevDebt > 0) s.free = false; // có tiền phải đóng thì không coi là miễn phí
+      s.balance = s.prevDebt + s.amount - s.paid;
+      if (s.amount > 0 || s.prevDebt !== 0 || s.paid > 0) s.free = false; // có tiền phải đóng / đã đóng thì không coi là miễn phí
     });
     const rows = [...stats.values()]
-      .filter(s => activeNames.has(s.name) || s.sessions > 0 || s.paid > 0 || s.prevDebt > 0)
+      .filter(s => activeNames.has(s.name) || s.sessions > 0 || s.paid > 0 || s.prevDebt !== 0)
       .sort((a, b) => b.amount - a.amount || byName(a.name, b.name));
     const dayList = [...days.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
 
@@ -184,37 +199,38 @@ export function createApi(repo: Repo) {
         classDays: dayList.length,
         learners: rows.filter(r => r.sessions > 0).length,
         collected: rows.reduce((t, r) => t + r.paid, 0),
-        outstanding: rows.reduce((t, r) => t + Math.max(0, r.amount - r.paid), 0),
-        prevDebt: rows.reduce((t, r) => t + r.prevDebt, 0),
+        outstanding: rows.reduce((t, r) => t + Math.max(0, r.balance), 0),
+        prevDebt: rows.reduce((t, r) => t + Math.max(0, r.prevDebt), 0),
       },
     };
   }
 
-  /** Đánh dấu / bỏ đánh dấu "đã đóng học phí" của 1 học viên trong 1 tháng. */
-  function setPaid(input: PaymentInput): MonthReport {
+  /** Ghi 1 lần đóng học phí (số tiền bất kỳ: đủ / thiếu / dư). */
+  function addPayment(input: PaymentRow): MonthReport {
     const month = String(input.month ?? '');
     if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('Tháng không hợp lệ: ' + month);
     const student = String(input.student ?? '').trim();
-    if (!student) throw new Error('Thiếu tên học viên');
+    const amount = money(input.amount);
+    if (!student) throw new Error('Thiếu tên học sinh');
+    if (amount <= 0) throw new Error('Số tiền phải lớn hơn 0');
     repo.withLock(() => {
-      const settleNote = `Trả nợ cùng lúc đóng ${month}`;
-      // Bỏ khoản của tháng này + các khoản trả nợ cũ đã ghi kèm khi đánh dấu tháng này (để Hoàn tác trả lại nợ cũ)
-      const list = repo.getPayments().filter(p => !(p.student === student && (p.month === month || p.note === settleNote)));
-      if (input.paid) {
-        const date = assertISODate(input.date);
-        // Xoá luôn nợ các tháng trước: ghi đã đóng đủ phần còn thiếu của từng tháng
-        if (input.includePrevious !== false) {
-          for (const [k, v] of debtsBefore(month, repo.getSessions(), list)) {
-            const [name, m] = k.split('|');
-            if (name === student) list.push({ month: m, student, amount: v, date, note: settleNote });
-          }
-        }
-        list.push({ month, student, amount: money(input.amount), date, note: '' });
-      }
-      list.sort((a, b) => (a.month < b.month ? -1 : a.month > b.month ? 1 : byName(a.student, b.student)));
-      repo.setPayments(list);
+      repo.setPayments([...repo.getPayments(), { month, student, amount, date: assertISODate(input.date), note: String(input.note ?? '').trim() }]);
     });
     return getMonthReport(month);
+  }
+
+  /** Hoàn tác 1 lần đóng học phí (kiểm tra nội dung để không xoá nhầm nếu Sheet vừa bị sửa). */
+  function deletePayment(id: number, expected: PaymentRow): MonthReport {
+    repo.withLock(() => {
+      const list = repo.getPayments();
+      const p = list[id];
+      if (!p || p.month !== expected.month || p.student !== expected.student || p.amount !== expected.amount || p.date !== expected.date) {
+        throw new Error('Dữ liệu vừa thay đổi – hãy tải lại rồi thử lại');
+      }
+      list.splice(id, 1);
+      repo.setPayments(list);
+    });
+    return getMonthReport(expected.month);
   }
 
   function getMonthlyOverview(): MonthOverview[] {
@@ -238,7 +254,7 @@ export function createApi(repo: Repo) {
   function addFine(input: FineRow): FinesData {
     const student = String(input.student ?? '').trim();
     const amount = money(input.amount);
-    if (!student) throw new Error('Hãy chọn học viên');
+    if (!student) throw new Error('Hãy chọn học sinh');
     if (amount <= 0) throw new Error('Số tiền phải lớn hơn 0');
     repo.withLock(() => {
       repo.setFines([...repo.getFines(), {
@@ -269,12 +285,12 @@ export function createApi(repo: Repo) {
     return { students: repo.getStudents(), sessions: repo.getSessions(), fines: repo.getFines(), payments: repo.getPayments() };
   }
 
-  return { getAllData, getStudents, saveStudent, getWeek, saveWeek, getMonthReport, setPaid, getMonthlyOverview, getFines, addFine, deleteFine };
+  return { getAllData, getStudents, saveStudent, getWeek, saveWeek, getMonthReport, addPayment, deletePayment, getMonthlyOverview, getFines, addFine, deleteFine };
 }
 
 export type ServerApi = ReturnType<typeof createApi>;
 export type ApiMethod = keyof ServerApi;
 export const API_METHODS: ApiMethod[] = [
-  'getAllData', 'getStudents', 'saveStudent', 'getWeek', 'saveWeek', 'getMonthReport', 'setPaid',
+  'getAllData', 'getStudents', 'saveStudent', 'getWeek', 'saveWeek', 'getMonthReport', 'addPayment', 'deletePayment',
   'getMonthlyOverview', 'getFines', 'addFine', 'deleteFine',
 ];

@@ -10,7 +10,7 @@ export interface Student {
   note: string;
 }
 
-/** 1 dòng tab DiemDanh: 1 học viên đi học trong 1 ngày */
+/** 1 dòng tab DiemDanh: 1 học sinh đi học trong 1 ngày */
 export interface SessionRow {
   date: string;
   student: string;
@@ -65,7 +65,7 @@ export interface SessionItem {
   legacy?: boolean;
 }
 
-/** 1 dòng tab DaDong: học viên đã đóng học phí của 1 tháng */
+/** 1 dòng tab DaDong: học sinh đã đóng học phí của 1 tháng */
 export interface PaymentRow {
   /** 'yyyy-MM' */
   month: string;
@@ -76,29 +76,30 @@ export interface PaymentRow {
   note: string;
 }
 
-export interface PaymentInput {
-  month: string;
-  student: string;
-  /** true = đánh dấu đã đóng, false = bỏ đánh dấu */
-  paid: boolean;
-  /** Khi đánh dấu đã đóng: xoá luôn nợ các tháng trước (mặc định true) */
-  includePrevious?: boolean;
+/** 1 lần đóng tiền trong tháng (có id = vị trí dòng trong tab DaDong, để hoàn tác) */
+export interface PaymentEntry {
+  id: number;
   amount: number;
   date: string;
+  note: string;
 }
 
 export interface StudentMonthStat {
   name: string;
-  /** Học viên học miễn phí (học phí/buổi = 0) */
+  /** Học sinh học miễn phí (học phí/buổi = 0) */
   free: boolean;
-  /** Số tiền đã đóng cho tháng này */
+  /** Số tiền đã đóng trong tháng này (có thể thiếu hoặc dư) */
   paid: number;
+  /** Các lần đóng trong tháng này */
+  payments: PaymentEntry[];
   /** Ngày đóng gần nhất, null nếu chưa đóng */
   paidDate: string | null;
-  /** Học phí các tháng trước còn thiếu (chưa đóng / đóng thiếu) */
+  /** Số dư đầu tháng: > 0 = nợ các tháng trước, < 0 = đóng dư từ trước (được trừ vào tháng này) */
   prevDebt: number;
   /** Các tháng còn nợ, 'yyyy-MM' */
   prevDebtMonths: string[];
+  /** Còn phải đóng sau mọi khoản: > 0 = còn thiếu, < 0 = đang dư */
+  balance: number;
   /** Chi tiết từng ngày đi học trong tháng (để soạn tin nhắn báo học phí) */
   items: SessionItem[];
   /** Số ngày đi học */
@@ -110,7 +111,7 @@ export interface StudentMonthStat {
 export interface DayStat {
   date: string;
   students: number;
-  /** Tên các học viên đi học hôm đó */
+  /** Tên các học sinh đi học hôm đó */
   names: string[];
   sessions: number;
   amount: number;
@@ -127,9 +128,9 @@ export interface MonthReport {
     learners: number;
     /** Đã thu trong tháng */
     collected: number;
-    /** Còn phải thu của tháng này (không tính học viên miễn phí) */
+    /** Còn phải thu (gồm cả nợ các tháng trước) */
     outstanding: number;
-    /** Tổng nợ học phí các tháng trước */
+    /** Tổng nợ học phí các tháng trước (đầu tháng) */
     prevDebt: number;
   };
 }

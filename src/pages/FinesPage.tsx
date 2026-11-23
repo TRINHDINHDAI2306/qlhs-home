@@ -3,6 +3,7 @@ import { fmtDMY, todayISO } from '../../shared/date';
 import type { Fine, FinesData, FineType } from '../../shared/types';
 import { Avatar } from '../components/Avatar';
 import { Sheet } from '../components/Sheet';
+import { PaySheet } from '../components/PaySheet';
 import { call } from '../lib/api';
 import { compact, money } from '../lib/format';
 import { useUi } from '../ui';
@@ -47,13 +48,16 @@ export function FinesPage() {
     setSheet({ student: b.name, type });
   };
 
-  /** 1 chạm: ghi "Đóng phạt" đúng số còn nợ → nợ phạt về 0 */
-  const payAll = async (b: Balance) => {
-    if (!confirm(`${b.name} đã đóng đủ ${money(b.owe)} tiền phạt?\nNợ phạt sẽ được xoá.`)) return;
-    const res = await run(call('addFine', { date: todayISO(), student: b.name, type: 'Đóng phạt', amount: b.owe, note: 'Đóng đủ – xoá nợ' }));
-    if (!res) return;
+  const [paying, setPaying] = useState<Balance | null>(null);
+
+  /** Ghi đóng phạt với số tiền bất kỳ (đủ / thiếu / dư) */
+  const pay = async (b: Balance, p: { amount: number; date: string; note: string }) => {
+    const res = await run(call('addFine', { date: p.date, student: b.name, type: 'Đóng phạt', amount: p.amount, note: p.note }));
+    if (!res) return false;
     setData(res);
-    toast(`✅ Đã xoá nợ phạt của ${b.name}`);
+    const left = b.owe - p.amount;
+    toast(left > 0 ? `${b.name} đã đóng ${money(p.amount)} · còn nợ ${money(left)}` : left < 0 ? `${b.name} đã đóng ${money(p.amount)} · dư ${money(-left)}` : `✅ ${b.name} đã đóng đủ tiền phạt`);
+    return true;
   };
 
   const submit = async (e: FormEvent) => {
@@ -82,8 +86,8 @@ export function FinesPage() {
       </div>
 
       <div className="card">
-        <h2>Học viên</h2>
-        <p className="sub">Bấm <b>＋ Phạt</b> để ghi phạt · <b>✓ Đã đóng</b> khi nộp đủ tiền (xoá nợ)</p>
+        <h2>Học sinh</h2>
+        <p className="sub">Bấm <b>＋ Phạt</b> để ghi phạt · <b>💵 Đóng tiền</b> để nhập số tiền nộp (đủ / thiếu / dư)</p>
         <ul className="student-list">
           {!data && <li className="empty">Đang tải…</li>}
           {balances.map(b => (
@@ -95,7 +99,7 @@ export function FinesPage() {
               </span>
               <span className="actions">
                 <button className="btn small" onClick={() => open(b, 'Phạt')}>＋ Phạt</button>
-                {b.owe > 0 && <button className="btn small green" onClick={() => void payAll(b)}>✓ Đã đóng</button>}
+                {(b.owe > 0 || b.fine > 0) && <button className="btn small green" onClick={() => setPaying(b)}>💵 Đóng tiền</button>}
               </span>
             </li>
           ))}
@@ -124,6 +128,17 @@ export function FinesPage() {
           </button>
         )}
       </div>
+
+      {paying && (
+        <PaySheet
+          title={`Đóng phạt · ${paying.name}`}
+          due={paying.owe}
+          dueDetail={<>Tổng phạt {money(paying.fine)} − đã đóng {money(paying.paid)}</>}
+          overLabel="ghi nhận là đóng dư"
+          onClose={() => setPaying(null)}
+          onSubmit={p => pay(paying, p)}
+        />
+      )}
 
       {sheet && (
         <Sheet

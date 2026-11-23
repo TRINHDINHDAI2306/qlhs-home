@@ -13,7 +13,7 @@ type Tab = 'attend' | 'report' | 'students' | 'fines';
 const TABS: { id: Tab; icon: string; label: string }[] = [
   { id: 'attend', icon: '📅', label: 'Điểm danh' },
   { id: 'report', icon: '💰', label: 'Học phí' },
-  { id: 'students', icon: '👥', label: 'Học viên' },
+  { id: 'students', icon: '👥', label: 'Học sinh' },
   { id: 'fines', icon: '⚠️', label: 'Phạt' },
 ];
 
@@ -89,7 +89,8 @@ export function App() {
               <small>{greeting()} · {DOW_FULL[dayOfWeek(todayISO())]}, {fmtDMY(todayISO())}</small>
             </div>
             {sync.pending > 0 ? <span className="sync-chip">⏳ Đang lưu…</span>
-              : sync.error ? <span className="sync-chip err" title={sync.error}>⚠️ Lỗi lưu – đã tải lại</span> : null}
+              : sync.error ? <button className="sync-chip err" title={sync.error} onClick={() => alert(sync.error)}>⚠️ Lỗi</button>
+              : sync.refreshing ? <span className="sync-chip">↻ Cập nhật…</span> : null}
             <button className="sheet-link-btn" onClick={() => setShowLinks(true)} aria-label="Link Google Sheet">📊 Sheet</button>
           </div>
           <nav role="tablist">

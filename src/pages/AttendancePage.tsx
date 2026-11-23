@@ -57,7 +57,7 @@ export function AttendancePage({ week, onWeekChange }: Props) {
 
   const saved = useMemo(() => (data ? gridFrom(data) : {}), [data]);
 
-  /** Học viên hiển thị: đang học + những người có điểm danh trong tuần */
+  /** Học sinh hiển thị: đang học + những người có điểm danh trong tuần */
   const rows = useMemo<Student[]>(() => {
     if (!data) return [];
     const inWeek = new Set(data.entries.map(e => e.student));
@@ -181,10 +181,10 @@ export function AttendancePage({ week, onWeekChange }: Props) {
         {!data ? (
           <div className="empty">Đang tải…</div>
         ) : rows.length === 0 ? (
-          <div className="empty">Chưa có học viên. Vào tab <b>Học viên</b> để thêm.</div>
+          <div className="empty">Chưa có học sinh. Vào tab <b>Học sinh</b> để thêm.</div>
         ) : (
           <>
-            <p className="hint">👆 Chạm vào tên học viên có đi học. Tự động lưu.</p>
+            <p className="hint">👆 Chạm vào tên học sinh có đi học. Tự động lưu.</p>
             <ul className="roster">
               {rows.map(s => {
                 const on = has(grid, s.name, day);
@@ -223,7 +223,7 @@ export function AttendancePage({ week, onWeekChange }: Props) {
               <table className="week-table">
                 <thead>
                   <tr>
-                    <th className="sticky">Học viên</th>
+                    <th className="sticky">Học sinh</th>
                     {days.map(d => (
                       <th key={d} className={`ctr ${d === day ? 'sel' : ''}`} onClick={() => setDay(d)}>
                         {DOW_SHORT[dayOfWeek(d)]}<br /><small>{fmtDM(d)}</small>

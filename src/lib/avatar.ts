@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-/** Bảng màu pastel tươi cho avatar – mỗi học viên 1 màu cố định theo tên */
+/** Bảng màu pastel tươi cho avatar – mỗi học sinh 1 màu cố định theo tên */
 const PALETTE: [string, string][] = [
   ['#dbeafe', '#1d4ed8'], // xanh dương
   ['#dcfce7', '#15803d'], // xanh lá

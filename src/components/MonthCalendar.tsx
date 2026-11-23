@@ -11,7 +11,7 @@ interface Props {
 
 const HEAD = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
-/** Lịch tháng: ngày có lớp hiện số học viên; chạm vào ngày để xem ai đi học. */
+/** Lịch tháng: ngày có lớp hiện số học sinh; chạm vào ngày để xem ai đi học. */
 export function MonthCalendar({ month, days }: Props) {
   const byDate = new Map(days.map(d => [d.date, d]));
   const today = todayISO();
@@ -42,7 +42,7 @@ export function MonthCalendar({ month, days }: Props) {
               key={d}
               className={`mcal-cell ${stat ? 'has' : ''} ${d === today ? 'today' : ''} ${d === selected ? 'sel' : ''}`}
               onClick={() => setSelected(d)}
-              aria-label={`${fmtDMY(d)}: ${stat ? `${stat.students} học viên` : 'không có lớp'}`}
+              aria-label={`${fmtDMY(d)}: ${stat ? `${stat.students} học sinh` : 'không có lớp'}`}
             >
               <span className="mcal-num">{parts(d)[2]}</span>
               {stat && <span className="mcal-badge">{stat.students}</span>}
@@ -60,7 +60,7 @@ export function MonthCalendar({ month, days }: Props) {
           <>
             <div className="mcal-detail-head">
               <b>{DOW_FULL[dayOfWeek(selected)]}, {fmtDMY(selected)}</b>
-              <span className="num">{sel.students} học viên · {money(sel.amount)}</span>
+              <span className="num">{sel.students} học sinh · {money(sel.amount)}</span>
             </div>
             <ul className="mcal-names">
               {sel.names.map(n => <li key={n}><Avatar name={n} /> {n}</li>)}

@@ -14,7 +14,7 @@ export function LinksSheet({ onClose, onReload }: { onClose(): void; onReload():
     }
   };
   return (
-    <Sheet title="📊 Google Sheet dữ liệu" subtitle="Nơi lưu toàn bộ học viên, điểm danh, học phí, phạt" onClose={onClose}
+    <Sheet title="📊 Google Sheet dữ liệu" subtitle="Nơi lưu toàn bộ học sinh, điểm danh, học phí, phạt" onClose={onClose}
       footer={
         <>
           <button className="btn big" onClick={() => void copy()}>📋 Copy link</button>

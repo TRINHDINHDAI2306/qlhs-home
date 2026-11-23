@@ -1,4 +1,4 @@
-/** Soạn tin nhắn báo học phí gửi phụ huynh / học viên. */
+/** Soạn tin nhắn báo học phí gửi phụ huynh / học sinh. */
 import { fmtDM } from '../../shared/date';
 import type { StudentMonthStat } from '../../shared/types';
 import { PAYMENT } from '../config';
@@ -54,9 +54,15 @@ export function buildTuitionMessage(stat: StudentMonthStat, month: string, opt: 
   const me = toStudent ? 'mình' : 'em';
   const monthNum = Number(month.slice(5));
   const monthText = `tháng ${monthNum}/${month.slice(0, 4)}`;
-  const debt = stat.prevDebt;
+  const debt = Math.max(0, stat.prevDebt);       // nợ các tháng trước
+  const credit = Math.max(0, -stat.prevDebt);    // tiền dư từ trước, trừ vào tháng này
+  const paid = stat.paid;                         // đã đóng trong tháng
   const debtMonths = monthsShort(stat.prevDebtMonths);
-  const total = Math.max(0, stat.amount - stat.paid) + debt;
+  const total = Math.max(0, stat.balance);       // còn phải đóng
+  const adjust = [
+    ...(credit ? [`💚 Trừ tiền dư tháng trước: −${vnd(credit)}`] : []),
+    ...(paid ? [`✅ Đã đóng: −${vnd(paid)}`] : []),
+  ];
   const hasSessions = stat.sessions > 0 && stat.amount > 0;
   const account = `${PAYMENT.accountNumber} – ${PAYMENT.bank}${PAYMENT.accountName ? ` (${PAYMENT.accountName})` : ''}`;
   const breakdown = `${feeBreakdown(stat)} = ${vnd(stat.amount)}`;
@@ -65,7 +71,9 @@ export function buildTuitionMessage(stat: StudentMonthStat, month: string, opt: 
     return [
       hasSessions ? `[HỌC PHÍ ${monthText.toUpperCase()}] ${name}` : `[HỌC PHÍ CÒN THIẾU] ${name}`,
       ...(hasSessions ? [`• ${breakdown}`] : []),
-      ...(debt ? [`• Còn thiếu ${debtMonths}: ${vnd(debt)}`, `• Tổng: ${vnd(total)}`] : []),
+      ...(debt ? [`• Còn thiếu ${debtMonths}: ${vnd(debt)}`] : []),
+      ...adjust.map(a => `• ${a.slice(3)}`),
+      ...(debt || adjust.length ? [`• Cần đóng: ${vnd(total)}`] : []),
       ...(toStudent ? [`📣 Nhắc bố mẹ đóng tiền học giúp mình nhé!`] : []),
       `💳 STK ${account}`,
     ].join('\n');
@@ -77,7 +85,10 @@ export function buildTuitionMessage(stat: StudentMonthStat, month: string, opt: 
         ? [`${capitalize(monthText)} ${toStudent ? name : `bạn ${name}`} đã học ${stat.sessions} buổi rồi ${toStudent ? 'nha' : 'ạ'} 📚`,
            `Học phí tháng là ${vnd(stat.amount)} (${feeBreakdown(stat)}).`]
         : []),
-      ...(debt ? [`${hasSessions ? 'Cộng thêm' : `${toStudent ? name : `Bạn ${name}`} còn`} ${vnd(debt)} học phí ${debtMonths} chưa đóng, tổng cộng là ${vnd(total)}${toStudent ? '' : ' ạ'}.`] : []),
+      ...(debt ? [`${hasSessions ? 'Cộng thêm' : `${toStudent ? name : `Bạn ${name}`} còn`} ${vnd(debt)} học phí ${debtMonths} chưa đóng.`] : []),
+      ...(credit ? [`Đã trừ ${vnd(credit)} tiền dư tháng trước.`] : []),
+      ...(paid ? [`Đã đóng ${vnd(paid)}.`] : []),
+      ...(debt || credit || paid ? [`Còn cần đóng ${vnd(total)}${toStudent ? '' : ' ạ'}.`] : []),
       '',
       toStudent ? `📣 ${name} nhắc bố mẹ đóng tiền học giúp mình nha 🙏` : `${X} chuyển khoản giúp ${me} nhé:`,
       `💳 ${account}`,
@@ -93,6 +104,7 @@ export function buildTuitionMessage(stat: StudentMonthStat, month: string, opt: 
       ? [`📅 Số buổi đã học: ${stat.sessions} buổi`, `     (${dateList(stat)})`, `💰 Học phí: ${breakdown}`]
       : []),
     ...(debt ? [`📌 Học phí còn thiếu ${debtMonths}: ${vnd(debt)}`] : []),
+    ...adjust,
     `👉 Tổng cần thanh toán: ${vnd(total)}`,
     '',
     toStudent ? `📣 ${name} nhắc bố mẹ đóng tiền học giúp mình nhé!` : `${X} vui lòng chuyển khoản giúp ${me} qua:`,
@@ -102,7 +114,7 @@ export function buildTuitionMessage(stat: StudentMonthStat, month: string, opt: 
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/* Ghi nhớ lựa chọn xưng hô / kiểu tin cho từng học viên */
+/* Ghi nhớ lựa chọn xưng hô / kiểu tin cho từng học sinh */
 const PREF_KEY = 'solop-msg-prefs';
 type Prefs = Record<string, Partial<MessageOptions>>;
 

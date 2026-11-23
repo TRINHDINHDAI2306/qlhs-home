@@ -48,13 +48,13 @@ export function StudentsPage() {
 
   return (
     <section>
-      <button className="btn primary big block add-btn" onClick={openAdd}>＋ Thêm học viên</button>
+      <button className="btn primary big block add-btn" onClick={openAdd}>＋ Thêm học sinh</button>
 
       <div className="card">
-        <h2>Danh sách học viên</h2>
+        <h2>Danh sách học sinh</h2>
         <p className="sub">{list ? `${activeCount} đang học · chạm vào tên để sửa` : 'Đang tải…'}</p>
         <ul className="student-list">
-          {list?.length === 0 && <li className="empty">Chưa có học viên nào</li>}
+          {list?.length === 0 && <li className="empty">Chưa có học sinh nào</li>}
           {list?.map(s => (
             <li key={s.name} className={s.active ? '' : 'inactive'}>
               <button className="row-btn" onClick={() => openEdit(s)}>
@@ -78,14 +78,14 @@ export function StudentsPage() {
 
       {editor && (
         <Sheet
-          title={editor.mode === 'add' ? 'Thêm học viên' : `Sửa · ${editor.student.name}`}
+          title={editor.mode === 'add' ? 'Thêm học sinh' : `Sửa · ${editor.student.name}`}
           subtitle="Học phí mới chỉ áp dụng cho các buổi điểm danh sau này"
           onClose={() => setEditor(null)}
           footer={<button className="btn primary big block" type="submit" form="student-form">{editor.mode === 'add' ? '＋ Thêm' : '💾 Lưu'}</button>}
         >
           <form id="student-form" className="sheet-form" onSubmit={submit} autoComplete="off">
             <label className="field">
-              Tên học viên
+              Tên học sinh
               <input type="text" required autoFocus={editor.mode === 'add'} placeholder="VD: Nguyễn Văn A"
                 value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
             </label>
