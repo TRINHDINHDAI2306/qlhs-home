@@ -140,6 +140,14 @@ export interface MonthOverview {
   amount: number;
 }
 
+/** Toàn bộ dữ liệu thô – app tải 1 lần khi mở, sau đó tính toán ngay trên máy */
+export interface AllData {
+  students: Student[];
+  sessions: SessionRow[];
+  fines: FineRow[];
+  payments: PaymentRow[];
+}
+
 /** Nơi lưu dữ liệu: Google Sheet (server) hoặc localStorage (chế độ xem thử). */
 export interface Repo {
   getStudents(): Student[];

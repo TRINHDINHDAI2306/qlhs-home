@@ -13,10 +13,9 @@ type SaveStatus = 'idle' | 'saving' | 'error';
 interface Props {
   week: string;
   onWeekChange(week: string): void;
-  onDirtyChange(dirty: boolean): void;
 }
 
-const AUTOSAVE_DELAY = 800;
+const AUTOSAVE_DELAY = 600;
 
 function gridFrom(data: WeekData): Grid {
   const g: Grid = {};
@@ -33,7 +32,7 @@ function toEntries(g: Grid): AttendanceInput[] {
   return out;
 }
 
-export function AttendancePage({ week, onWeekChange, onDirtyChange }: Props) {
+export function AttendancePage({ week, onWeekChange }: Props) {
   const { run } = useUi();
   const today = todayISO();
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(week, i)), [week]);
@@ -77,7 +76,6 @@ export function AttendancePage({ week, onWeekChange, onDirtyChange }: Props) {
     () => rows.some(s => days.some(d => has(grid, s.name, d) !== has(saved, s.name, d))),
     [rows, days, grid, saved],
   );
-  useEffect(() => onDirtyChange(dirty || status === 'saving'), [dirty, status, onDirtyChange]);
 
   /* ---------- Tự động lưu ---------- */
   const save = useCallback(async (g: Grid): Promise<boolean> => {
@@ -96,12 +94,13 @@ export function AttendancePage({ week, onWeekChange, onDirtyChange }: Props) {
     return () => window.clearTimeout(t);
   }, [grid, dirty, status, save]);
 
-  useEffect(() => {
-    if (!dirty) return;
-    const beforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
-    window.addEventListener('beforeunload', beforeUnload);
-    return () => window.removeEventListener('beforeunload', beforeUnload);
-  }, [dirty]);
+  // Rời trang (chuyển tab) khi còn thay đổi chưa lưu → lưu nốt luôn
+  const pendingRef = useRef<{ dirty: boolean; grid: Grid; week: string }>({ dirty: false, grid: {}, week });
+  pendingRef.current = { dirty, grid, week };
+  useEffect(() => () => {
+    const p = pendingRef.current;
+    if (p.dirty) void call('saveWeek', p.week, toEntries(p.grid)).catch(() => {});
+  }, []);
 
   const toggle = (student: string, date: string) =>
     setGrid(g => ({ ...g, [student]: { ...g[student], [date]: !has(g, student, date) } }));

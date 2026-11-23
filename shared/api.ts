@@ -10,7 +10,7 @@
  */
 import { addDays, assertISODate, mondayOf } from './date';
 import type {
-  AttendanceInput, Fine, FineRow, FinesData, MonthOverview, MonthReport, PaymentInput, PaymentRow, Repo,
+  AllData, AttendanceInput, Fine, FineRow, FinesData, MonthOverview, MonthReport, PaymentInput, PaymentRow, Repo,
   SessionRow, Student, StudentInput, StudentMonthStat, DayStat, WeekData,
 } from './types';
 
@@ -264,12 +264,17 @@ export function createApi(repo: Repo) {
     return getFines();
   }
 
-  return { getStudents, saveStudent, getWeek, saveWeek, getMonthReport, setPaid, getMonthlyOverview, getFines, addFine, deleteFine };
+  /** Toàn bộ dữ liệu thô cho app tải 1 lần */
+  function getAllData(): AllData {
+    return { students: repo.getStudents(), sessions: repo.getSessions(), fines: repo.getFines(), payments: repo.getPayments() };
+  }
+
+  return { getAllData, getStudents, saveStudent, getWeek, saveWeek, getMonthReport, setPaid, getMonthlyOverview, getFines, addFine, deleteFine };
 }
 
 export type ServerApi = ReturnType<typeof createApi>;
 export type ApiMethod = keyof ServerApi;
 export const API_METHODS: ApiMethod[] = [
-  'getStudents', 'saveStudent', 'getWeek', 'saveWeek', 'getMonthReport', 'setPaid',
+  'getAllData', 'getStudents', 'saveStudent', 'getWeek', 'saveWeek', 'getMonthReport', 'setPaid',
   'getMonthlyOverview', 'getFines', 'addFine', 'deleteFine',
 ];

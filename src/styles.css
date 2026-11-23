@@ -507,3 +507,18 @@ a.btn { text-decoration: none; }
 img.logo { background: none; box-shadow: 0 4px 12px rgba(0, 40, 100, .25); border-radius: 12px; }
 
 .paid-extra { color: var(--green); font-weight: 600; }
+
+/* ---------- Màn hình tải / đồng bộ ---------- */
+.boot {
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: linear-gradient(160deg, #3b7bf7 0%, #14b8d4 100%); color: #fff; padding: 24px; text-align: center;
+}
+.boot-logo { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 14px 34px rgba(10, 40, 100, .35); }
+.boot h1 { margin: 8px 0 0; font-size: 24px; }
+.boot-msg { margin: 0; opacity: .95; display: inline-flex; align-items: center; gap: 10px; }
+.boot-msg.err { background: rgba(255, 255, 255, .18); padding: 10px 14px; border-radius: 12px; max-width: 360px; }
+.boot-retry { background: #fff; color: var(--primary); border: 0; margin-top: 6px; }
+.spinner { width: 18px; height: 18px; border-radius: 50%; border: 3px solid rgba(255, 255, 255, .35); border-top-color: #fff; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sync-chip { flex: none; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 99px; background: rgba(255, 255, 255, .22); color: #fff; white-space: nowrap; }
+.sync-chip.err { background: #fee2e2; color: var(--danger); }

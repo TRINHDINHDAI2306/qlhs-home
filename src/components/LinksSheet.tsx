@@ -4,7 +4,7 @@ import { useUi } from '../ui';
 import { Sheet } from './Sheet';
 
 /** Link Google Sheet: xem, copy, mở. */
-export function LinksSheet({ onClose }: { onClose(): void }) {
+export function LinksSheet({ onClose, onReload }: { onClose(): void; onReload(): Promise<void> }) {
   const { toast } = useUi();
   const copy = async () => {
     if (await copyText(SHEET_URL)) toast('📋 Đã copy link Google Sheet');
@@ -23,6 +23,10 @@ export function LinksSheet({ onClose }: { onClose(): void }) {
       }>
       <input id="sheet-link" className="link-box" type="text" readOnly value={SHEET_URL} onFocus={e => e.currentTarget.select()} />
       <p className="hint">Chỉ tài khoản Google của bạn mở được Sheet này.</p>
+      <button className="btn block soft" onClick={async () => {
+        try { await onReload(); toast('↻ Đã tải lại dữ liệu mới nhất từ Sheet'); onClose(); }
+        catch (e) { toast(e instanceof Error ? e.message : 'Không tải lại được', true); }
+      }}>↻ Tải lại dữ liệu từ Sheet (sau khi sửa tay trong Sheet)</button>
     </Sheet>
   );
 }
