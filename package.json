@@ -1,0 +1,29 @@
+{
+  "name": "so-lop-hoc",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc -p tsconfig.json && tsc -p server/tsconfig.json",
+    "build": "npm run typecheck && vite build && node scripts/build-server.mjs",
+    "preview": "vite preview",
+    "push": "npm run build && clasp push -f",
+    "deploy": "npm run push && clasp create-deployment -i AKfycbwX3Zt1P1ShB9JZRR78znQ96i7ChGynb6MBzpaPSM0qhCsoQFmW5sgiywQO0I0leYSKnw -d \"Cập nhật\""
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.4.1",
+    "@types/google-apps-script": "^2.0.15",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vite-plugin-singlefile": "^2.3.4"
+  }
+}
